@@ -138,22 +138,23 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
 }
 
 // Run Pa11y Accessibility Test
-async function runTest(url, standard, includeScreenshot = true) {
+async function runTest(url, standard) {
   try {
     const results = await pa11y(url, {
       standard: standard,
       includeWarnings: true,
       timeout: 180000,
-    });    
-    
-    console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
+      chromeLaunchConfig: {
+        executablePath: "/usr/bin/google-chrome", // Ensures Puppeteer finds Chrome
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      },
+    });
 
-    // 🛑 **Ensure screenshots are skipped for summary**
-    const groupedIssues = await groupIssues(results.issues, standard, url, includeScreenshot);
+    console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
     return {
       standard: standard,
-      grouped: groupedIssues,
+      grouped: results.issues,
     };
   } catch (err) {
     console.error(`❌ Pa11y Error (${standard}):`, err.message);
