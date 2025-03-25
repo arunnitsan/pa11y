@@ -144,12 +144,7 @@ async function runTest(url, standard, includeScreenshot = true) {
       standard: standard,
       includeWarnings: true,
       timeout: 180000,
-      ignore: [],
-      launch: {
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      },
-    });
+    });    
     
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
