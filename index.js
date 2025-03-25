@@ -1,6 +1,5 @@
 import express from "express";
 import pa11y from "pa11y";
-import puppeteer from "puppeteer";
 import cors from "cors";
 
 const app = express();
@@ -67,56 +66,6 @@ function getWcagLevel(standard) {
   };
 }
 
-// Puppeteer Screenshot Capture with Improved Error Handling
-async function captureScreenshot(url, selector) {
-  if (!selector) return null;
-
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });  
-
-  const page = await browser.newPage();
-
-  try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-
-    // Wait for the element to exist in the DOM
-    const elementExists = await page.evaluate((sel) => !!document.querySelector(sel), selector);
-
-    if (!elementExists) {
-      console.warn(`⚠️ Element not found: ${selector} (Skipping Screenshot)`);
-      await browser.close();
-      return null;
-    }
-
-    // Scroll element into view
-    await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, selector);
-
-    // Wait for element visibility with a longer timeout
-    await page.waitForSelector(selector, { visible: true, timeout: 5000 });
-
-    // Capture screenshot if the element is visible
-    const element = await page.$(selector);
-    if (element) {
-      const screenshotBuffer = await element.screenshot();
-      const base64Image = screenshotBuffer.toString("base64");
-      await browser.close();
-      return `data:image/png;base64,${base64Image}`;
-    } else {
-      console.warn(`⚠️ Element found but not visible: ${selector}`);
-    }
-  } catch (error) {
-    console.error(`❌ Screenshot Capture Failed: ${error.message}`);
-  }
-
-  await browser.close();
-  return null;
-}
-
 // Function to determine impact level based on WCAG level & issue type
 function getImpactLevel(issue) {
   if (issue.type === "error") return "High";
@@ -179,11 +128,6 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
         occurrences,
       };
 
-      // 🛑 **Only capture screenshots when explicitly needed**
-      if (includeScreenshot) {
-        issueData.screenshot = await captureScreenshot(url, issue.selector);
-      }
-
       grouped[principle][typeMapping[issue.type]].push(issueData);
     } else {
       console.warn(`⚠️ Unknown issue type: "${issue.type}" - Skipping`, issue);
@@ -202,11 +146,11 @@ async function runTest(url, standard, includeScreenshot = true) {
       timeout: 180000,
       ignore: [],
       launch: {
-        headless: "new",
+        headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       },
-    });    
-
+    });
+    
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
     // 🛑 **Ensure screenshots are skipped for summary**
