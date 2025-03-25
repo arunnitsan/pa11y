@@ -194,27 +194,29 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
 }
 
 // Run Pa11y Accessibility Test
-async function runTest(url, standard, includeScreenshot = true) {
+async function runTest(url, standard) {
   try {
     const results = await pa11y(url, {
       standard: standard,
       includeWarnings: true,
       timeout: 180000,
-      ignore: [],
-      launch: {
-        headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      chromeLaunchConfig: {
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--disable-software-rasterizer",
+          "--headless"
+        ],
       },
-    });    
+    });
 
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
-    // 🛑 **Ensure screenshots are skipped for summary**
-    const groupedIssues = await groupIssues(results.issues, standard, url, includeScreenshot);
-
     return {
       standard: standard,
-      grouped: groupedIssues,
+      grouped: results.issues,
     };
   } catch (err) {
     console.error(`❌ Pa11y Error (${standard}):`, err.message);
