@@ -194,7 +194,7 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
 }
 
 // Run Pa11y Accessibility Test
-async function runTest(url, standard) {
+async function runTest(url, standard, includeScreenshot = true) {
   try {
     const results = await pa11y(url, {
       standard: standard,
@@ -214,9 +214,12 @@ async function runTest(url, standard) {
 
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
+    // 🛑 **Ensure screenshots are skipped for summary**
+    const groupedIssues = await groupIssues(results.issues, standard, url, includeScreenshot);
+
     return {
       standard: standard,
-      grouped: results.issues,
+      grouped: groupedIssues,
     };
   } catch (err) {
     console.error(`❌ Pa11y Error (${standard}):`, err.message);
@@ -227,32 +230,6 @@ async function runTest(url, standard) {
   }
 }
 
-// API Route
-// app.get("/api/test", async (req, res) => {
-//   if (!req.query.url || !/^https?:\/\//.test(req.query.url)) {
-//     return res.status(400).json({ error: "A valid URL is required" });
-//   }
-
-//   const url = req.query.url;
-//   const standards = ["WCAG2A", "WCAG2AA", "WCAG2AAA"];
-
-//   console.log(`🚀 Testing URL: ${url}`);
-//   console.log("Running All Standards...");
-
-//   const results = await Promise.all(standards.map((standard) => runTest(url, standard)));
-
-//   console.log("=== ✅ Pa11y Category & Law Wise Report ===");
-//   results.forEach((result) => {
-//     if (result.error) {
-//       console.log(`${result.standard} ❌ ERROR: ${result.error}`);
-//     } else {
-//       console.log(`${result.standard} ✅`);
-//     }
-//     console.log("------------------------------");
-//   });
-
-//   res.status(200).json(results);
-// });
 app.get("/api/test/summary", async (req, res) => {
   if (!req.query.url || !/^https?:\/\//.test(req.query.url)) {
     return res.status(400).json({ error: "A valid URL is required" });
