@@ -1,7 +1,6 @@
-import express from "express";
-import pa11y from "pa11y";
-import puppeteer from "puppeteer";
-import cors from "cors";
+const express = require("express");
+const pa11y = require("pa11y");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3200;
@@ -67,56 +66,6 @@ function getWcagLevel(standard) {
   };
 }
 
-// Puppeteer Screenshot Capture with Improved Error Handling
-async function captureScreenshot(url, selector) {
-  if (!selector) return null;
-
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });  
-
-  const page = await browser.newPage();
-
-  try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-
-    // Wait for the element to exist in the DOM
-    const elementExists = await page.evaluate((sel) => !!document.querySelector(sel), selector);
-
-    if (!elementExists) {
-      console.warn(`⚠️ Element not found: ${selector} (Skipping Screenshot)`);
-      await browser.close();
-      return null;
-    }
-
-    // Scroll element into view
-    await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, selector);
-
-    // Wait for element visibility with a longer timeout
-    await page.waitForSelector(selector, { visible: true, timeout: 5000 });
-
-    // Capture screenshot if the element is visible
-    const element = await page.$(selector);
-    if (element) {
-      const screenshotBuffer = await element.screenshot();
-      const base64Image = screenshotBuffer.toString("base64");
-      await browser.close();
-      return `data:image/png;base64,${base64Image}`;
-    } else {
-      console.warn(`⚠️ Element found but not visible: ${selector}`);
-    }
-  } catch (error) {
-    console.error(`❌ Screenshot Capture Failed: ${error.message}`);
-  }
-
-  await browser.close();
-  return null;
-}
-
 // Function to determine impact level based on WCAG level & issue type
 function getImpactLevel(issue) {
   if (issue.type === "error") return "High";
@@ -134,8 +83,8 @@ function getResponsibility(issue) {
   return "General Accessibility Compliance";
 }
 
-// Group Issues with Titles, Levels & Screenshot Capture
-async function groupIssues(issues, standard, url, includeScreenshot = true) {
+// Group Issues with Titles, Levels (No Screenshots)
+async function groupIssues(issues, standard, url) {
   let grouped = {};
   const level = getWcagLevel(standard);
 
@@ -179,11 +128,6 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
         occurrences,
       };
 
-      // 🛑 **Only capture screenshots when explicitly needed**
-      if (includeScreenshot) {
-        issueData.screenshot = await captureScreenshot(url, issue.selector);
-      }
-
       grouped[principle][typeMapping[issue.type]].push(issueData);
     } else {
       console.warn(`⚠️ Unknown issue type: "${issue.type}" - Skipping`, issue);
@@ -194,23 +138,19 @@ async function groupIssues(issues, standard, url, includeScreenshot = true) {
 }
 
 // Run Pa11y Accessibility Test
-async function runTest(url, standard, includeScreenshot = true) {
+async function runTest(url, standard) {
   try {
     const results = await pa11y(url, {
       standard: standard,
       includeWarnings: true,
       timeout: 180000,
       ignore: [],
-      launch: {
-        headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      },
-    });    
+    });
 
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
-    // 🛑 **Ensure screenshots are skipped for summary**
-    const groupedIssues = await groupIssues(results.issues, standard, url, includeScreenshot);
+    // 🛑 **Screenshots are removed**
+    const groupedIssues = await groupIssues(results.issues, standard, url);
 
     return {
       standard: standard,
@@ -225,32 +165,7 @@ async function runTest(url, standard, includeScreenshot = true) {
   }
 }
 
-// API Route
-// app.get("/api/test", async (req, res) => {
-//   if (!req.query.url || !/^https?:\/\//.test(req.query.url)) {
-//     return res.status(400).json({ error: "A valid URL is required" });
-//   }
-
-//   const url = req.query.url;
-//   const standards = ["WCAG2A", "WCAG2AA", "WCAG2AAA"];
-
-//   console.log(`🚀 Testing URL: ${url}`);
-//   console.log("Running All Standards...");
-
-//   const results = await Promise.all(standards.map((standard) => runTest(url, standard)));
-
-//   console.log("=== ✅ Pa11y Category & Law Wise Report ===");
-//   results.forEach((result) => {
-//     if (result.error) {
-//       console.log(`${result.standard} ❌ ERROR: ${result.error}`);
-//     } else {
-//       console.log(`${result.standard} ✅`);
-//     }
-//     console.log("------------------------------");
-//   });
-
-//   res.status(200).json(results);
-// });
+// API Route - Summary
 app.get("/api/test/summary", async (req, res) => {
   if (!req.query.url || !/^https?:\/\//.test(req.query.url)) {
     return res.status(400).json({ error: "A valid URL is required" });
@@ -261,12 +176,12 @@ app.get("/api/test/summary", async (req, res) => {
 
   console.log(`🚀 Testing URL (Summary): ${url}`);
 
-  // 🛑 **Pass `false` to skip screenshots**
-  const results = await Promise.all(standards.map((standard) => runTest(url, standard, false)));
+  const results = await Promise.all(standards.map((standard) => runTest(url, standard)));
 
   res.status(200).json(results);
 });
 
+// API Route - Full (Same as Summary, No Screenshots)
 app.get("/api/test/full", async (req, res) => {
   if (!req.query.url || !/^https?:\/\//.test(req.query.url)) {
     return res.status(400).json({ error: "A valid URL is required" });
@@ -277,8 +192,7 @@ app.get("/api/test/full", async (req, res) => {
 
   console.log(`🚀 Testing URL (Full): ${url}`);
 
-  // ✅ `true` keeps screenshot capture for full reports
-  const results = await Promise.all(standards.map((standard) => runTest(url, standard, true)));
+  const results = await Promise.all(standards.map((standard) => runTest(url, standard)));
 
   res.status(200).json(results);
 });
