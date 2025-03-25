@@ -2,6 +2,7 @@
   "name": "html",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index"
   },
@@ -15,6 +16,7 @@
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "https": "^1.0.0",
-    "pa11y": "^8.0.0"
+    "pa11y": "^8.0.0",
+    "puppeteer-core": "^24.4.0"
   }
 }

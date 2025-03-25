@@ -1,7 +1,7 @@
-const express = require("express");
-const pa11y = require("pa11y");
-const puppeteer = require("puppeteer");
-const cors = require("cors");
+import express from "express";
+import pa11y from "pa11y";
+import puppeteer from "puppeteer";
+import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3200;
@@ -72,9 +72,9 @@ async function captureScreenshot(url, selector) {
   if (!selector) return null;
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  });  
 
   const page = await browser.newPage();
 
@@ -202,10 +202,10 @@ async function runTest(url, standard, includeScreenshot = true) {
       timeout: 180000,
       ignore: [],
       launch: {
-        headless: true,
+        headless: "new",
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       },
-    });
+    });    
 
     console.log(`🔍 Raw Pa11y Issues (${standard}):`, results.issues);
 
